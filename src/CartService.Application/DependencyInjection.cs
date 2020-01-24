@@ -20,6 +20,7 @@ namespace CartService.Application
 
             services.AddTransient<IShoppingCartRepository, ShoppingCartRepository>();
             services.AddTransient<IShoppingCartItemRepository, ShoppingCartItemRepository>();
+            services.AddTransient<IProductRepository, ProductRepository>();
 
             services.AddTransient<ICustomerShoppingCartService, CustomerShoppingCartService>();
             services.AddTransient<IBackgroundShoppingCartService, BackgroundShoppingCartService>();

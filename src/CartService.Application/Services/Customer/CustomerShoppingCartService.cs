@@ -13,17 +13,20 @@ namespace CartService.Application.Services.Customer
         private readonly IUnitOfWork _unitOfWork;
         private readonly IShoppingCartRepository _shoppingCartRepository;
         private readonly IShoppingCartItemRepository _shoppingCartItemRepository;
+        private readonly IProductRepository _productRepository;
         private readonly IMapper _mapper;
 
         public CustomerShoppingCartService(
             IUnitOfWork unitOfWork,
             IShoppingCartRepository shoppingCartRepository,
             IShoppingCartItemRepository shoppingCartItemRepository,
+            IProductRepository productRepository,
             IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _shoppingCartRepository = shoppingCartRepository;
             _shoppingCartItemRepository = shoppingCartItemRepository;
+            _productRepository = productRepository;
             _mapper = mapper;
         }
 
@@ -53,7 +56,7 @@ namespace CartService.Application.Services.Customer
         {
             await _unitOfWork.RunInTrunsaction(async () =>
             {
-                // TODO: get COST from product repository
+                var product = await _productRepository.Get(productId);
 
                 var cart = await _shoppingCartRepository.GetByCustomerId(customerId, includeItems: true);
                 if (cart == null)
@@ -61,7 +64,7 @@ namespace CartService.Application.Services.Customer
                     cart = new ShoppingCart(customerId);
                     await _shoppingCartRepository.Add(cart);
 
-                    var item = new ShoppingCartItem(cart.Id, productId, 0, quantity);
+                    var item = new ShoppingCartItem(cart.Id, product.Id, product.Cost, quantity);
                     await _shoppingCartItemRepository.Add(item);
 
                     return;
@@ -70,10 +73,10 @@ namespace CartService.Application.Services.Customer
                 cart.LatestUpdatedOn = DateTimeOffset.UtcNow;
                 await _shoppingCartRepository.Update(cart);
 
-                var cartItem = cart.ShoppingCartItems.FirstOrDefault(x => x.ProductId == productId);
+                var cartItem = cart.ShoppingCartItems.FirstOrDefault(x => x.ProductId == product.Id);
                 if (cartItem == null)
                 {
-                    var item = new ShoppingCartItem(cart.Id, productId, 0, quantity);
+                    var item = new ShoppingCartItem(cart.Id, product.Id, product.Cost, quantity);
                     await _shoppingCartItemRepository.Add(item);
                 }
                 else
