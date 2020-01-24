@@ -1,0 +1,153 @@
+{
+	"info": {
+		"_postman_id": "89557284-54a3-43af-ac2e-442fe70c365b",
+		"name": "CartService",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get cart",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Cookie",
+						"value": "{{cookie}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{siteUrl}}/api/cart",
+					"host": [
+						"{{siteUrl}}"
+					],
+					"path": [
+						"api",
+						"cart"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete cart",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Cookie",
+						"type": "text",
+						"value": "{{cookie}}"
+					}
+				],
+				"url": {
+					"raw": "{{siteUrl}}/api/cart",
+					"host": [
+						"{{siteUrl}}"
+					],
+					"path": [
+						"api",
+						"cart"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Add product",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Cookie",
+						"type": "text",
+						"value": "{{cookie}}"
+					}
+				],
+				"url": {
+					"raw": "{{siteUrl}}/api/cart/product?productId=1&quantity=2",
+					"host": [
+						"{{siteUrl}}"
+					],
+					"path": [
+						"api",
+						"cart",
+						"product"
+					],
+					"query": [
+						{
+							"key": "productId",
+							"value": "1"
+						},
+						{
+							"key": "quantity",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Checkout cart",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Cookie",
+						"type": "text",
+						"value": "{{cookie}}"
+					}
+				],
+				"url": {
+					"raw": "{{siteUrl}}/api/cart/checkout",
+					"host": [
+						"{{siteUrl}}"
+					],
+					"path": [
+						"api",
+						"cart",
+						"checkout"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete product",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Cookie",
+						"type": "text",
+						"value": "{{cookie}}"
+					}
+				],
+				"url": {
+					"raw": "{{siteUrl}}/api/cart/product?productId=1&quantity=1",
+					"host": [
+						"{{siteUrl}}"
+					],
+					"path": [
+						"api",
+						"cart",
+						"product"
+					],
+					"query": [
+						{
+							"key": "productId",
+							"value": "1"
+						},
+						{
+							"key": "quantity",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
