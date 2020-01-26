@@ -17,6 +17,7 @@ namespace CartService.Application.Services.Background
         private readonly IUnitOfWork _unitOfWork;
         private readonly IShoppingCartRepository _shoppingCartRepository;
         private readonly IHttpClientFactory _clientFactory;
+        private readonly IReportSaver _reportSaver;
 
         private readonly AsyncPolicyWrap<HttpResponseMessage> _webhookApiPolicy;
 
@@ -24,18 +25,20 @@ namespace CartService.Application.Services.Background
             IUnitOfWork unitOfWork,
             IShoppingCartRepository shoppingCartRepository,
             IHttpClientFactory clientFactory,
+            IReportSaver reportSaver,
             IReadOnlyPolicyRegistry<string> registry)
         {
             _unitOfWork = unitOfWork;
             _shoppingCartRepository = shoppingCartRepository;
             _clientFactory = clientFactory;
+            _reportSaver = reportSaver;
 
             _webhookApiPolicy = registry.Get<AsyncPolicyWrap<HttpResponseMessage>>("webhookApiPolicy");
         }
 
         public async Task GenerateReport()
         {
-            await _unitOfWork.RunInTrunsaction(async (con, tran) =>
+            var cartsReport = await _unitOfWork.RunInTrunsaction(async (con, tran) =>
             {
                 var sqlQuery = @"
                     -- total carts
@@ -82,23 +85,23 @@ namespace CartService.Application.Services.Background
                     StartDay30 = getDateFunc(-30), EndDay30 = getDateFunc(0),
                 };
 
-                var cartsReport = new ShoppingCartsReportDTO();
+                var result = new ShoppingCartsReportDTO();
 
                 using (var multi = await con.QueryMultipleAsync(sqlQuery, args, tran))
                 {
-                    cartsReport.TotalCarts = multi.Read<int>().Single();
-                    cartsReport.TotalCartsWithBonuses = multi.Read<int>().Single();
-                    cartsReport.TotalCartsExpiredIn10Days = multi.Read<int>().Single();
-                    cartsReport.TotalCartsExpiredIn20Days = multi.Read<int>().Single();
-                    cartsReport.TotalCartsExpiredIn30Days = multi.Read<int>().Single();
-                    cartsReport.AverageCheck = multi.Read<decimal>().Single();
+                    result.TotalCarts = multi.Read<int>().Single();
+                    result.TotalCartsWithBonuses = multi.Read<int>().Single();
+                    result.TotalCartsExpiredIn10Days = multi.Read<int>().Single();
+                    result.TotalCartsExpiredIn20Days = multi.Read<int>().Single();
+                    result.TotalCartsExpiredIn30Days = multi.Read<int>().Single();
+                    result.AverageCheck = multi.Read<decimal>().Single();
                 }
 
-                // save report
-                // file saving service.SaveShoppingCartReport(DTO);
-
-                return Task.CompletedTask;
+                return result;
             });
+
+            var fileName = $"shoppingCartReport_{DateTime.UtcNow.ToString("yyyy-MM-dd")}";
+            await _reportSaver.SaveShoppingCartReport(fileName, cartsReport);
         }
 
         public async Task DeleteExpiredShoppingCarts()

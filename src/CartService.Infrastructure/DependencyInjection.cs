@@ -1,4 +1,6 @@
-﻿using CartService.Infrastructure.Policies;
+﻿using CartService.Application.Services;
+using CartService.Infrastructure.Policies;
+using CartService.Infrastructure.Services;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +15,7 @@ namespace CartService.Infrastructure
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddSingleton<IReadOnlyPolicyRegistry<string>>(PollyPolicyRegistry.Create());
+            services.AddTransient<IReportSaver, TxtReportSaver>();
 
             // Add Hangfire services.
             services.AddHangfire(cfg => cfg
