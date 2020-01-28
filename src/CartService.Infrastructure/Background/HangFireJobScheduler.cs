@@ -9,14 +9,14 @@ namespace CartService.Infrastructure.Background
         public static void Configure()
         {
             RecurringJob.AddOrUpdate<IBackgroundShoppingCartService>(
-                "ShoppingCartGenerateReport",
+                "BackgroundShoppingCartService_GenerateReport",
                 x => x.GenerateReport(),
                 Cron.Daily); // Cron.MinuteInterval(1)
 
             RecurringJob.AddOrUpdate<IBackgroundShoppingCartService>(
-                "DeleteExpiredShoppingCarts",
+                "BackgroundShoppingCartService_DeleteExpiredShoppingCarts",
                 x => x.DeleteExpiredShoppingCarts(),
-                Cron.Daily(2)); // Cron.MinuteInterval(2)
+                $"*/25 * * * *"); // Cron.MinuteInterval(25)
         }
     }
 }

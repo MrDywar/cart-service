@@ -2,12 +2,16 @@
 using CartService.Application.Repositories;
 using CartService.Domain.Entities;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using Polly.Registry;
 using Polly.Wrap;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CartService.Application.Services.Background
@@ -15,24 +19,24 @@ namespace CartService.Application.Services.Background
     public class BackgroundShoppingCartService : IBackgroundShoppingCartService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IShoppingCartRepository _shoppingCartRepository;
-        private readonly IHttpClientFactory _clientFactory;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IReportSaver _reportSaver;
 
+        private readonly string _onDeleteWebhookUrl;
         private readonly AsyncPolicyWrap<HttpResponseMessage> _webhookApiPolicy;
 
         public BackgroundShoppingCartService(
             IUnitOfWork unitOfWork,
-            IShoppingCartRepository shoppingCartRepository,
             IHttpClientFactory clientFactory,
             IReportSaver reportSaver,
+            IConfiguration configuration,
             IReadOnlyPolicyRegistry<string> registry)
         {
             _unitOfWork = unitOfWork;
-            _shoppingCartRepository = shoppingCartRepository;
-            _clientFactory = clientFactory;
+            _httpClientFactory = clientFactory;
             _reportSaver = reportSaver;
 
+            _onDeleteWebhookUrl = configuration.GetValue<string>("ShoppingCartOnDeleteWebhookUrl");
             _webhookApiPolicy = registry.Get<AsyncPolicyWrap<HttpResponseMessage>>("webhookApiPolicy");
         }
 
@@ -106,19 +110,14 @@ namespace CartService.Application.Services.Background
 
         public async Task DeleteExpiredShoppingCarts()
         {
-            var olderThanUtc = new DateTime(
-                DateTime.UtcNow.Year,
-                DateTime.UtcNow.Month,
-                DateTime.UtcNow.Day)
-                .AddDays(-29)
-                .AddTicks(-1);
+            var olderThanUtc = DateTime.UtcNow.AddDays(-30);
 
             var expiredCarts = new List<ShoppingCart>();
 
             await _unitOfWork.RunInTrunsaction(async (con, tran) =>
             {
                 var sqlSelectQuery = @"
-                    SELECT *
+                    SELECT TOP 100 *
                     FROM ShoppingCart
                     WHERE LatestUpdatedOn <= @olderThanUtc";
 
@@ -134,10 +133,16 @@ namespace CartService.Application.Services.Background
                 return await con.ExecuteAsync(sqlDeleteQuery, new { Ids = expiredCartIds }, tran);
             });
 
+            // ignore errors, or use repeatable jobs (persist storage)
             foreach (var cart in expiredCarts)
             {
-                // webhook here.
-                // ignore errors, or use repeatable jobs
+                var content = new StringContent(JsonSerializer.Serialize(cart), Encoding.Default, "application/json");
+
+                var client = _httpClientFactory.CreateClient();
+
+                await _webhookApiPolicy.ExecuteAndCaptureAsync(async ct =>
+                    await client.PostAsync(_onDeleteWebhookUrl, content, ct),
+                    CancellationToken.None);
             }
         }
     }
