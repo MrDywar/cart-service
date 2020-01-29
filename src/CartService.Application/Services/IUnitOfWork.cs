@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace CartService.Application.Services
 {
-    public interface IUnitOfWork : IDisposable
+    public interface IUnitOfWork
     {
         IDbTransaction Transaction { get; }
 
@@ -12,16 +12,12 @@ namespace CartService.Application.Services
             Func<Task<TResult>> operation,
             IsolationLevel isolationLevel = IsolationLevel.ReadCommitted);
 
-        Task<TResult> RunInTrunsaction<TResult>(
-            Func<IDbConnection, IDbTransaction, Task<TResult>> operation,
-            IsolationLevel isolationLevel = IsolationLevel.ReadCommitted);
-
         Task RunInTrunsaction(
             Func<Task> operation,
             IsolationLevel isolationLevel = IsolationLevel.ReadCommitted);
 
-        TResult RunInTrunsaction<TResult>(
-            Func<TResult> operation,
+        Task<TResult> RunInTrunsaction<TResult>(
+            Func<IDbConnection, IDbTransaction, Task<TResult>> operation,
             IsolationLevel isolationLevel = IsolationLevel.ReadCommitted);
     }
 }

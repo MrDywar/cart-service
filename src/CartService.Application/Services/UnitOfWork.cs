@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 
@@ -6,13 +7,15 @@ namespace CartService.Application.Services
 {
     public class UnitOfWork : IUnitOfWork
     {
-        private IConnectionFactory _connectionFactory;
-        private IDbTransaction _transaction;
-        private bool _disposed;
+        private readonly IConnectionFactory _connectionFactory;
+        private readonly ILogger _logger;
 
-        public UnitOfWork(IConnectionFactory connectionFactory)
+        private IDbTransaction _transaction;
+
+        public UnitOfWork(IConnectionFactory connectionFactory, ILogger<UnitOfWork> logger)
         {
             _connectionFactory = connectionFactory;
+            _logger = logger;
         }
 
         public IDbTransaction Transaction { get { return _transaction; } }
@@ -21,119 +24,46 @@ namespace CartService.Application.Services
             Func<Task<TResult>> operation,
             IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
         {
-            using (var connection = _connectionFactory.GetConnection())
+            return await RunInTrunsaction(async (con, tran) =>
             {
-                using (_transaction = connection.BeginTransaction(isolationLevel))
-                {
-                    try
-                    {
-                        var result = await operation();
-                        _transaction.Commit();
-                        return result;
-                    }
-                    catch
-                    {
-                        _transaction.Rollback();
-                        throw;
-                    }
-                }
-            }
-        }
-
-        public async Task<TResult> RunInTrunsaction<TResult>(
-            Func<IDbConnection, IDbTransaction, Task<TResult>> operation,
-            IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
-        {
-            using (var connection = _connectionFactory.GetConnection())
-            {
-                using (_transaction = connection.BeginTransaction(isolationLevel))
-                {
-                    try
-                    {
-                        var result = await operation(connection, _transaction);
-                        _transaction.Commit();
-                        return result;
-                    }
-                    catch
-                    {
-                        _transaction.Rollback();
-                        throw;
-                    }
-                }
-            }
+                return await operation();
+            }, isolationLevel: isolationLevel);
         }
 
         public async Task RunInTrunsaction(
             Func<Task> operation,
             IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
         {
-            using (var connection = _connectionFactory.GetConnection())
+            await RunInTrunsaction(async (con, tran) =>
             {
-                using (_transaction = connection.BeginTransaction(isolationLevel))
-                {
-                    try
-                    {
-                        await operation();
-                        _transaction.Commit();
-                    }
-                    catch
-                    {
-                        _transaction.Rollback();
-                        throw;
-                    }
-                }
-            }
+                await operation();
+
+                return Task.CompletedTask;
+            }, isolationLevel: isolationLevel);
         }
 
-        public TResult RunInTrunsaction<TResult>(
-            Func<TResult> operation,
+        public async Task<TResult> RunInTrunsaction<TResult>(
+            Func<IDbConnection, IDbTransaction, Task<TResult>> operation,
             IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
         {
-            using (var connection = _connectionFactory.GetConnection())
+            using var connection = _connectionFactory.GetConnection();
+            using (_transaction = connection.BeginTransaction(isolationLevel))
             {
-                using (_transaction = connection.BeginTransaction(isolationLevel))
+                try
                 {
-                    try
-                    {
-                        var result = operation();
-                        _transaction.Commit();
-                        return result;
-                    }
-                    catch
-                    {
-                        _transaction.Rollback();
-                        throw;
-                    }
+                    var result = await operation(connection, _transaction);
+                    _transaction.Commit();
+
+                    return result;
+                }
+                catch (Exception e)
+                {
+                    _transaction.Rollback();
+                    _logger.LogError(e.Message);
+
+                    throw;
                 }
             }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    if (_transaction != null)
-                    {
-                        _transaction.Dispose();
-                        _transaction = null;
-                    }
-                }
-
-                _disposed = true;
-            }
-        }
-
-        ~UnitOfWork()
-        {
-            Dispose(false);
         }
     }
 }
